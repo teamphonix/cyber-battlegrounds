@@ -1,93 +1,66 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
 
-type Mode = "deathmatch" | "ctf" | "core";
-type Player = { x: number; y: number; angle: number; hp: number; score: number; color: string; name: string; cooldown: number; melee: number; hasFlag: boolean };
-type Wall = { x: number; y: number; hp: number; owner: number };
-type Shot = { x: number; y: number; vx: number; vy: number; owner: number; life: number };
+type Action = "forward"|"back"|"left"|"right";
 
-const MODES: { id: Mode; name: string; desc: string; icon: string }[] = [
-  { id: "deathmatch", name: "Knockout", desc: "First to 7 eliminations", icon: "⚡" },
-  { id: "ctf", name: "Flag Raid", desc: "Steal the enemy crystal", icon: "◆" },
-  { id: "core", name: "Core Breaker", desc: "Destroy the rival core", icon: "◉" },
-];
+function makeFighter(color:number, dark:number){
+  const group=new THREE.Group();
+  const mat=new THREE.MeshStandardMaterial({color,roughness:.72});
+  const trim=new THREE.MeshStandardMaterial({color:dark,roughness:.55,metalness:.25});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(.78,1.05,.46),mat);body.position.y=1.45;body.castShadow=true;group.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(.62,.62,.62),mat);head.position.y=2.28;head.castShadow=true;group.add(head);
+  const visor=new THREE.Mesh(new THREE.BoxGeometry(.64,.18,.04),new THREE.MeshStandardMaterial({color:0x70eaff,emissive:0x19798c,emissiveIntensity:1.4}));visor.position.set(0,2.32,-.32);group.add(visor);
+  [-.25,.25].forEach(x=>{const leg=new THREE.Mesh(new THREE.BoxGeometry(.25,.75,.3),trim);leg.position.set(x,.55,0);leg.castShadow=true;group.add(leg)});
+  [-.54,.54].forEach(x=>{const arm=new THREE.Mesh(new THREE.BoxGeometry(.23,.85,.28),mat);arm.position.set(x,1.5,0);arm.castShadow=true;group.add(arm)});
+  const gun=new THREE.Mesh(new THREE.BoxGeometry(.16,.16,.8),trim);gun.position.set(.54,1.45,-.48);group.add(gun);return group;
+}
 
-const W = 960, H = 600;
-const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
-const dist = (a: {x:number;y:number}, b: {x:number;y:number}) => Math.hypot(a.x-b.x, a.y-b.y);
+export default function Home(){
+  const mount=useRef<HTMLDivElement>(null);const active=useRef(new Set<Action>());const engine=useRef<{fire:()=>void;build:()=>void;remove:()=>void;jump:()=>void}|null>(null);
+  const [started,setStarted]=useState(false);const [hud,setHud]=useState({hp:100,enemy:100,blocks:24,score:0});const [help,setHelp]=useState(true);
 
-function makePlayers(): Player[] { return [
-  { x: 150, y: 300, angle: 0, hp: 100, score: 0, color: "#80ff72", name: "NOVA", cooldown: 0, melee: 0, hasFlag: false },
-  { x: 810, y: 300, angle: Math.PI, hp: 100, score: 0, color: "#ff5b7f", name: "RIFT", cooldown: 0, melee: 0, hasFlag: false },
-]; }
-
-export default function Home() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const keys = useRef(new Set<string>());
-  const touch = useRef(new Set<string>());
-  const game = useRef({ players: makePlayers(), walls: [] as Wall[], shots: [] as Shot[], running: false, mode: "deathmatch" as Mode, versus: "bot", winner: "", cores: [300,300], flags: [{x:88,y:300,homeX:88,homeY:300},{x:872,y:300,homeX:872,homeY:300}] });
-  const [mode, setMode] = useState<Mode>("deathmatch");
-  const [versus, setVersus] = useState<"bot"|"local">("bot");
-  const [playing, setPlaying] = useState(false);
-  const [hud, setHud] = useState({ hp1:100, hp2:100, s1:0, s2:0, winner:"" });
-  const [showHelp, setShowHelp] = useState(false);
-
-  const action = useCallback((player: number, kind: "shoot"|"melee"|"build") => {
-    const g=game.current, p=g.players[player]; if(!g.running || p.hp<=0) return;
-    if(kind==="shoot" && p.cooldown<=0){ g.shots.push({x:p.x+Math.cos(p.angle)*24,y:p.y+Math.sin(p.angle)*24,vx:Math.cos(p.angle)*8,vy:Math.sin(p.angle)*8,owner:player,life:80}); p.cooldown=18; }
-    if(kind==="melee" && p.melee<=0){ p.melee=20; const e=g.players[1-player]; if(dist(p,e)<62){ e.hp-=28; } }
-    if(kind==="build" && p.cooldown<=0){ const x=clamp(p.x+Math.cos(p.angle)*55,35,W-35), y=clamp(p.y+Math.sin(p.angle)*55,35,H-35); g.walls.push({x,y,hp:80,owner:player}); if(g.walls.length>18) g.walls.shift(); p.cooldown=22; }
+  useEffect(()=>{if(!mount.current)return;const host=mount.current;
+    const scene=new THREE.Scene();scene.background=new THREE.Color(0x07111f);scene.fog=new THREE.Fog(0x07111f,22,58);
+    const camera=new THREE.PerspectiveCamera(68,host.clientWidth/host.clientHeight,.1,120);const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.setSize(host.clientWidth,host.clientHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;host.appendChild(renderer.domElement);
+    scene.add(new THREE.HemisphereLight(0x85cfff,0x132115,2.1));const sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(-12,24,10);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
+    const ground=new THREE.Mesh(new THREE.BoxGeometry(54,1,54),new THREE.MeshStandardMaterial({color:0x172b31,roughness:.95}));ground.position.y=-.5;ground.receiveShadow=true;scene.add(ground);
+    const grid=new THREE.GridHelper(54,54,0x5cfff2,0x244552);grid.position.y=.01;scene.add(grid);
+    const blocks:THREE.Mesh[]=[];const blockGeo=new THREE.BoxGeometry(1,1,1);const mats=[0x335e59,0x315178,0x633e72,0x6b573b].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:.82}));
+    const addBlock=(x:number,y:number,z:number,material=0)=>{if(blocks.some(b=>b.position.distanceTo(new THREE.Vector3(x,y,z))<.2))return;const b=new THREE.Mesh(blockGeo,mats[material%mats.length]);b.position.set(x,y,z);b.castShadow=true;b.receiveShadow=true;b.userData.block=true;blocks.push(b);scene.add(b)};
+    for(let x=-25;x<=25;x++){addBlock(x,.5,-25,1);addBlock(x,.5,25,1)}for(let z=-24;z<25;z++){addBlock(-25,.5,z,1);addBlock(25,.5,z,1)}
+    [[-8,0,-6],[8,0,6],[-11,0,10],[10,0,-10],[0,0,0]].forEach(([x,,z],i)=>{for(let yy=0;yy<3;yy++)for(let xx=-2;xx<=2;xx++)addBlock(x+xx,yy+.5,z,i%4)});
+    for(let i=0;i<35;i++){const x=Math.floor(Math.random()*39)-19,z=Math.floor(Math.random()*39)-19;if(Math.abs(x)<5&&Math.abs(z)<5)continue;addBlock(x,.5,z,i%4);if(Math.random()>.68)addBlock(x,1.5,z,i%4)}
+    const player=makeFighter(0x80ff72,0x173a32);player.position.set(0,0,8);scene.add(player);const bot=makeFighter(0xff5b7f,0x49172a);bot.position.set(0,0,-10);scene.add(bot);
+    const shots:{mesh:THREE.Mesh;velocity:THREE.Vector3;owner:string;life:number}[]=[];let hp=100,enemy=100,score=0,inventory=24,vy=0,onGround=true,yaw=0,pitch=.38,drag=false,lastX=0,lastY=0,fireCd=0,botCd=0,running=true;
+    const ray=new THREE.Raycaster();const clock=new THREE.Clock();
+    const shoot=(who="player")=>{if(who==="player"&&fireCd>0)return;const owner=who==="player"?player:bot;const dir=new THREE.Vector3(0,0,-1).applyQuaternion(owner.quaternion).normalize();const orb=new THREE.Mesh(new THREE.SphereGeometry(.09,8,8),new THREE.MeshBasicMaterial({color:who==="player"?0xbaff66:0xff5277}));orb.position.copy(owner.position).add(new THREE.Vector3(0,1.55,0)).addScaledVector(dir,.8);scene.add(orb);shots.push({mesh:orb,velocity:dir.multiplyScalar(18),owner:who,life:2.4});if(who==="player")fireCd=.28;else botCd=.65};
+    const build=()=>{if(inventory<=0)return;const dir=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);const p=player.position.clone().addScaledVector(dir,2.2);const x=Math.round(p.x),z=Math.round(p.z);if(Math.hypot(x-player.position.x,z-player.position.z)<1.2)return;let y=.5;while(blocks.some(b=>b.position.distanceTo(new THREE.Vector3(x,y,z))<.2)&&y<4.5)y++;addBlock(x,y,z,0);inventory--;setHud({hp,enemy,blocks:inventory,score})};
+    const remove=()=>{const origin=player.position.clone().add(new THREE.Vector3(0,1.5,0));const dir=new THREE.Vector3(0,0,-1).applyQuaternion(player.quaternion);ray.set(origin,dir);const hit=ray.intersectObjects(blocks,false)[0];if(hit&&hit.distance<5){const b=hit.object as THREE.Mesh;scene.remove(b);blocks.splice(blocks.indexOf(b),1);inventory=Math.min(30,inventory+1);setHud({hp,enemy,blocks:inventory,score})}};
+    const jump=()=>{if(onGround){vy=7.3;onGround=false}};engine.current={fire:()=>shoot(),build,remove,jump};
+    const kd=(e:KeyboardEvent)=>{const k=e.key.toLowerCase();if(k==="w")active.current.add("forward");if(k==="s")active.current.add("back");if(k==="a")active.current.add("left");if(k==="d")active.current.add("right");if(k===" "){e.preventDefault();jump()}if(k==="f")shoot();if(k==="e")build();if(k==="r")remove()};const ku=(e:KeyboardEvent)=>{const k=e.key.toLowerCase();if(k==="w")active.current.delete("forward");if(k==="s")active.current.delete("back");if(k==="a")active.current.delete("left");if(k==="d")active.current.delete("right")};
+    const pd=(e:PointerEvent)=>{if(e.target===renderer.domElement){drag=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)}};const pm=(e:PointerEvent)=>{if(!drag)return;yaw-=(e.clientX-lastX)*.007;pitch=THREE.MathUtils.clamp(pitch+(e.clientY-lastY)*.004,.12,.8);lastX=e.clientX;lastY=e.clientY};const pu=()=>drag=false;
+    addEventListener("keydown",kd);addEventListener("keyup",ku);renderer.domElement.addEventListener("pointerdown",pd);renderer.domElement.addEventListener("pointermove",pm);renderer.domElement.addEventListener("pointerup",pu);
+    const collides=(p:THREE.Vector3)=>blocks.some(b=>Math.abs(b.position.x-p.x)<.72&&Math.abs(b.position.z-p.z)<.72&&b.position.y<2.2);
+    let raf=0;const animate=()=>{raf=requestAnimationFrame(animate);const dt=Math.min(clock.getDelta(),.035);if(running){fireCd-=dt;botCd-=dt;
+      player.rotation.y=yaw;const forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw)),right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw)),move=new THREE.Vector3();if(active.current.has("forward"))move.add(forward);if(active.current.has("back"))move.sub(forward);if(active.current.has("right"))move.add(right);if(active.current.has("left"))move.sub(right);if(move.lengthSq()){move.normalize().multiplyScalar(5.4*dt);const next=player.position.clone().add(move);if(!collides(next)){player.position.copy(next)}player.children.slice(3,5).forEach((leg,i)=>leg.rotation.x=Math.sin(performance.now()*.012+i*Math.PI)*.5)}
+      vy-=18*dt;player.position.y+=vy*dt;if(player.position.y<=0){player.position.y=0;vy=0;onGround=true}
+      const toPlayer=player.position.clone().sub(bot.position);toPlayer.y=0;const d=toPlayer.length();bot.rotation.y=Math.atan2(-toPlayer.x,-toPlayer.z);if(d>7){const next=bot.position.clone().add(toPlayer.normalize().multiplyScalar(2.4*dt));if(!collides(next))bot.position.copy(next)}if(d<18&&botCd<=0)shoot("bot");
+      shots.forEach(s=>{s.mesh.position.addScaledVector(s.velocity,dt);s.life-=dt;const target=s.owner==="player"?bot:player;if(s.mesh.position.distanceTo(target.position.clone().add(new THREE.Vector3(0,1.3,0)))<.65){if(s.owner==="player")enemy-=14;else hp-=10;s.life=0}if(blocks.some(b=>s.mesh.position.distanceTo(b.position)<.62))s.life=0});for(let i=shots.length-1;i>=0;i--)if(shots[i].life<=0){scene.remove(shots[i].mesh);shots.splice(i,1)}
+      if(enemy<=0){score++;enemy=100;bot.position.set((Math.random()-.5)*25,0,-14);inventory=Math.min(30,inventory+5)}if(hp<=0){hp=100;score=Math.max(0,score-1);player.position.set(0,0,8)}setHud({hp,enemy,blocks:inventory,score});
+    }
+      const focus=player.position.clone().add(new THREE.Vector3(0,1.4,0));const camOffset=new THREE.Vector3(Math.sin(yaw)*7*Math.cos(pitch),3+Math.sin(pitch)*4,Math.cos(yaw)*7*Math.cos(pitch));camera.position.lerp(focus.clone().add(camOffset),.13);camera.lookAt(focus);renderer.render(scene,camera)};animate();
+    const resize=()=>{camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix();renderer.setSize(host.clientWidth,host.clientHeight)};addEventListener("resize",resize);
+    return()=>{running=false;cancelAnimationFrame(raf);removeEventListener("resize",resize);removeEventListener("keydown",kd);removeEventListener("keyup",ku);renderer.dispose();host.removeChild(renderer.domElement)}
   },[]);
-
-  const startGame = () => { const g=game.current; g.players=makePlayers(); g.walls=[]; g.shots=[]; g.mode=mode; g.versus=versus; g.winner=""; g.running=true; g.cores=[300,300]; g.flags=[{x:88,y:300,homeX:88,homeY:300},{x:872,y:300,homeX:872,homeY:300}]; setHud({hp1:100,hp2:100,s1:0,s2:0,winner:""}); setPlaying(true); };
-
-  useEffect(()=>{
-    const down=(e:KeyboardEvent)=>{ keys.current.add(e.key.toLowerCase()); if([" ","arrowup","arrowdown","arrowleft","arrowright"].includes(e.key.toLowerCase()))e.preventDefault(); if(e.key===" ")action(0,"shoot"); if(e.key.toLowerCase()==="q")action(0,"melee"); if(e.key.toLowerCase()==="e")action(0,"build"); if(e.key==="Enter")action(1,"shoot"); if(e.key==="/")action(1,"melee"); if(e.key===".")action(1,"build");};
-    const up=(e:KeyboardEvent)=>keys.current.delete(e.key.toLowerCase()); addEventListener("keydown",down);addEventListener("keyup",up);return()=>{removeEventListener("keydown",down);removeEventListener("keyup",up)};
-  },[action]);
-
-  useEffect(()=>{
-    const c=canvasRef.current;if(!c)return;const ctx=c.getContext("2d")!; let raf=0, last=0;
-    const respawn=(i:number)=>{const g=game.current,p=g.players[i],enemy=g.players[1-i]; enemy.score++; p.x=i?810:150;p.y=300;p.hp=100;p.hasFlag=false;if(g.mode==="deathmatch"&&enemy.score>=7){g.winner=enemy.name;g.running=false;}};
-    const hitWalls=(x:number,y:number)=>game.current.walls.some(w=>Math.abs(x-w.x)<30&&Math.abs(y-w.y)<30);
-    const loop=(t:number)=>{raf=requestAnimationFrame(loop);if(t-last<16)return;last=t;const g=game.current;
-      if(g.running){
-        g.players.forEach((p,i)=>{p.cooldown=Math.max(0,p.cooldown-1);p.melee=Math.max(0,p.melee-1);let dx=0,dy=0;const k=keys.current,tc=touch.current;
-          if(i===0){if(k.has("w")||tc.has("up"))dy--;if(k.has("s")||tc.has("down"))dy++;if(k.has("a")||tc.has("left"))dx--;if(k.has("d")||tc.has("right"))dx++;}
-          else if(g.versus==="local"){if(k.has("arrowup"))dy--;if(k.has("arrowdown"))dy++;if(k.has("arrowleft"))dx--;if(k.has("arrowright"))dx++;}
-          else {const target=g.players[0], d=dist(p,target); if(d>180){dx=Math.sign(target.x-p.x);dy=Math.sign(target.y-p.y)} else {dy=Math.sin(t/450);dx=-Math.sin(t/650)} if(d<360&&p.cooldown<=0)action(1,"shoot");if(d<58&&p.melee<=0)action(1,"melee");if(Math.random()<.004)action(1,"build");}
-          if(dx||dy){const l=Math.hypot(dx,dy);dx/=l;dy/=l;p.angle=Math.atan2(dy,dx);const nx=clamp(p.x+dx*3.3,22,W-22),ny=clamp(p.y+dy*3.3,22,H-22);if(!hitWalls(nx,ny)){p.x=nx;p.y=ny}}
-        });
-        g.shots.forEach(s=>{s.x+=s.vx;s.y+=s.vy;s.life--;const e=g.players[1-s.owner];if(dist(s,e)<20){e.hp-=14;s.life=0;}g.walls.forEach(w=>{if(Math.abs(s.x-w.x)<29&&Math.abs(s.y-w.y)<29){w.hp-=20;s.life=0}})});g.shots=g.shots.filter(s=>s.life>0&&s.x>0&&s.x<W&&s.y>0&&s.y<H);g.walls=g.walls.filter(w=>w.hp>0);
-        g.players.forEach((p,i)=>{if(p.hp<=0)respawn(i)});
-        if(g.mode==="ctf")g.players.forEach((p,i)=>{const enemyFlag=g.flags[1-i];if(!p.hasFlag&&dist(p,enemyFlag)<35){p.hasFlag=true;enemyFlag.x=p.x;enemyFlag.y=p.y}if(p.hasFlag){enemyFlag.x=p.x;enemyFlag.y=p.y;if((i===0&&p.x<115)||(i===1&&p.x>845)){p.score++;p.hasFlag=false;enemyFlag.x=enemyFlag.homeX;enemyFlag.y=enemyFlag.homeY;if(p.score>=3){g.winner=p.name;g.running=false}}}});
-        if(g.mode==="core")g.shots.forEach(s=>{const target=1-s.owner,cx=target?885:75;if(Math.hypot(s.x-cx,s.y-300)<42){g.cores[target]-=3;s.life=0;if(g.cores[target]<=0){g.winner=g.players[s.owner].name;g.running=false}}});
-        setHud({hp1:g.players[0].hp,hp2:g.players[1].hp,s1:g.players[0].score,s2:g.players[1].score,winner:g.winner});
-      }
-      ctx.clearRect(0,0,W,H);const grad=ctx.createLinearGradient(0,0,W,H);grad.addColorStop(0,"#16233b");grad.addColorStop(1,"#090e1a");ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
-      ctx.strokeStyle="rgba(126,249,255,.08)";ctx.lineWidth=1;for(let x=0;x<W;x+=40){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}for(let y=0;y<H;y+=40){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
-      ctx.fillStyle="rgba(128,255,114,.08)";ctx.fillRect(0,0,120,H);ctx.fillStyle="rgba(255,91,127,.08)";ctx.fillRect(W-120,0,120,H);
-      if(g.mode==="ctf")g.flags.forEach((f,i)=>{ctx.fillStyle=i?"#ff5b7f":"#80ff72";ctx.beginPath();ctx.moveTo(f.x,f.y-18);ctx.lineTo(f.x+15,f.y);ctx.lineTo(f.x,f.y+18);ctx.lineTo(f.x-15,f.y);ctx.fill()});
-      if(g.mode==="core")g.cores.forEach((hp,i)=>{const x=i?885:75;ctx.strokeStyle=i?"#ff5b7f":"#80ff72";ctx.lineWidth=7;ctx.beginPath();ctx.arc(x,300,34,-Math.PI/2,-Math.PI/2+Math.PI*2*(hp/300));ctx.stroke();ctx.fillStyle="#eef7ff";ctx.font="700 14px monospace";ctx.textAlign="center";ctx.fillText(String(Math.max(0,hp)),x,305)});
-      g.walls.forEach(w=>{ctx.fillStyle=w.owner?"#943e59":"#397a48";ctx.fillRect(w.x-28,w.y-28,56,56);ctx.strokeStyle=w.owner?"#ff8aa3":"#9aff8f";ctx.lineWidth=3;ctx.strokeRect(w.x-28,w.y-28,56,56);ctx.fillStyle="rgba(255,255,255,.25)";ctx.fillRect(w.x-22,w.y+18,44*(w.hp/80),4)});
-      g.shots.forEach(s=>{ctx.fillStyle=s.owner?"#ff8aa3":"#d9ff72";ctx.shadowBlur=12;ctx.shadowColor=ctx.fillStyle;ctx.beginPath();ctx.arc(s.x,s.y,5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0});
-      g.players.forEach(p=>{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.angle);ctx.fillStyle=p.color;ctx.shadowBlur=18;ctx.shadowColor=p.color;ctx.beginPath();ctx.arc(0,0,18,0,Math.PI*2);ctx.fill();ctx.fillRect(8,-5,24,10);ctx.shadowBlur=0;if(p.melee>12){ctx.strokeStyle="#fff";ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,38,-.8,.8);ctx.stroke()}ctx.restore();ctx.fillStyle="#0a101c";ctx.fillRect(p.x-24,p.y-34,48,6);ctx.fillStyle=p.color;ctx.fillRect(p.x-24,p.y-34,48*(p.hp/100),6)});
-      if(!g.running&&g.winner){ctx.fillStyle="rgba(3,6,13,.75)";ctx.fillRect(0,0,W,H);ctx.textAlign="center";ctx.fillStyle="#fff";ctx.font="900 54px Arial";ctx.fillText(`${g.winner} WINS`,W/2,H/2);ctx.font="18px Arial";ctx.fillStyle="#9fb1c7";ctx.fillText("Tap REMATCH to jump back in",W/2,H/2+38)}
-    };raf=requestAnimationFrame(loop);return()=>cancelAnimationFrame(raf);
-  },[action]);
-
-  const touchButton=(id:string,label:string,kind?:"shoot"|"melee"|"build")=><button aria-label={label} className={`touch-btn ${kind?"action":""}`} onPointerDown={e=>{e.preventDefault();if(kind)action(0,kind);else touch.current.add(id)}} onPointerUp={()=>touch.current.delete(id)} onPointerLeave={()=>touch.current.delete(id)}>{label}</button>;
-
-  return <main>
-    <header><div className="brand"><span className="brand-mark">CB</span><div><b>CYBER BATTLE</b><small>GROUNDS</small></div></div><button className="help" onClick={()=>setShowHelp(!showHelp)}>HOW TO PLAY</button></header>
-    <section className="hero"><div><p className="eyebrow">BUILD · BATTLE · BREAK THROUGH</p><h1>YOUR GROUND.<br/><em>YOUR RULES.</em></h1><p className="intro">Drop into a neon arena, build cover in seconds, and outplay your rival. Pick a mode and enter the battle.</p></div>
-      <div className="setup"><span className="step">01 / CHOOSE MODE</span><div className="mode-grid">{MODES.map(m=><button key={m.id} className={mode===m.id?"selected":""} onClick={()=>setMode(m.id)}><i>{m.icon}</i><b>{m.name}</b><small>{m.desc}</small></button>)}</div><span className="step">02 / CHOOSE RIVAL</span><div className="toggle"><button className={versus==="bot"?"active":""} onClick={()=>setVersus("bot")}>VS BOT</button><button className={versus==="local"?"active":""} onClick={()=>setVersus("local")}>2 PLAYERS · PC</button></div><button className="deploy" onClick={startGame}>{playing?"REMATCH":"DEPLOY NOW"}<span>→</span></button></div>
-    </section>
-    <section className={`arena-wrap ${playing?"live":""}`}><div className="arena-head"><div><span className="live-dot"/> LIVE ARENA</div><div className="score"><b style={{color:"#80ff72"}}>NOVA {hud.s1}</b><span>{MODES.find(m=>m.id===mode)?.name.toUpperCase()}</span><b style={{color:"#ff5b7f"}}>{hud.s2} RIFT</b></div></div>
-      <canvas ref={canvasRef} width={W} height={H}/><div className="touch-controls"><div className="dpad"><span/>{touchButton("up","▲")}<span/>{touchButton("left","◀")}{touchButton("down","▼")}{touchButton("right","▶")}</div><div className="actions">{touchButton("build","BUILD","build")}{touchButton("melee","HIT","melee")}{touchButton("shoot","FIRE","shoot")}</div></div>
-    </section>
-    <footer><span>PROTOTYPE 01</span><p>Original browser battle game · Built for keyboard and touch</p><span>NO DOWNLOAD</span></footer>
-    {showHelp&&<div className="modal" onClick={()=>setShowHelp(false)}><div onClick={e=>e.stopPropagation()}><button className="close" onClick={()=>setShowHelp(false)}>×</button><p className="eyebrow">FIELD MANUAL</p><h2>OUTBUILD. OUTPLAY.</h2><div className="help-grid"><section><b>PLAYER ONE</b><p><kbd>W A S D</kbd> Move</p><p><kbd>SPACE</kbd> Fire</p><p><kbd>Q</kbd> Melee</p><p><kbd>E</kbd> Build</p></section><section><b>PLAYER TWO</b><p><kbd>ARROWS</kbd> Move</p><p><kbd>ENTER</kbd> Fire</p><p><kbd>/</kbd> Melee</p><p><kbd>.</kbd> Build</p></section></div><p className="tip">On phones, use the on-screen movement pad and action buttons. Landscape works best.</p></div></div>}
-  </main>;
+  const hold=(a:Action,label:string)=><button onPointerDown={()=>active.current.add(a)} onPointerUp={()=>active.current.delete(a)} onPointerLeave={()=>active.current.delete(a)}>{label}</button>;
+  return <main className="game-shell"><div ref={mount} className="world"/>
+    <header className="game-top"><div className="brand"><span className="brand-mark">CB</span><div><b>CYBER BATTLE</b><small>GROUNDS · VOXEL ALPHA</small></div></div><button className="help" onClick={()=>setHelp(true)}>CONTROLS</button></header>
+    <div className="hud"><div><small>HEALTH</small><strong>{hud.hp}</strong><span className="bar"><i style={{width:`${hud.hp}%`}}/></span></div><div><small>RIFT HP</small><strong>{hud.enemy}</strong></div><div><small>BLOCKS</small><strong>{hud.blocks}</strong></div><div><small>SCORE</small><strong>{hud.score}</strong></div></div>
+    <div className="crosshair">+</div><div className="mission"><b>VOXEL WILDS</b><span>Hunt RIFT. Build your path. Own the ground.</span></div>
+    <div className="mobile"><div className="move"><i/>{hold("forward","▲")}<i/>{hold("left","◀")}{hold("back","▼")}{hold("right","▶")}</div><div className="mobile-actions"><button onClick={()=>engine.current?.jump()}>JUMP</button><button onClick={()=>engine.current?.remove()}>MINE</button><button onClick={()=>engine.current?.build()}>BUILD</button><button className="fire" onClick={()=>engine.current?.fire()}>FIRE</button></div></div>
+    {!started&&<div className="splash"><div><p>3D PLAYABLE PROTOTYPE</p><h1>ENTER THE<br/><em>VOXEL WILDS</em></h1><span>Walk the world as a cyber fighter. Build, mine, jump, and battle.</span><button onClick={()=>{setStarted(true);setHelp(false)}}>DROP IN <b>→</b></button></div></div>}
+    {help&&started&&<div className="guide"><div><button onClick={()=>setHelp(false)}>×</button><p>FIELD CONTROLS</p><h2>MOVE LIKE A FIGHTER.<br/>BUILD LIKE A CREATOR.</h2><section><span><kbd>WASD</kbd> WALK</span><span><kbd>DRAG</kbd> LOOK</span><span><kbd>SPACE</kbd> JUMP</span><span><kbd>F</kbd> FIRE</span><span><kbd>E</kbd> BUILD</span><span><kbd>R</kbd> MINE</span></section><small>On phones, drag the world to look and use the on-screen controls.</small></div></div>}
+  </main>
 }

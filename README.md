@@ -1,14 +1,14 @@
 # Cyber Battle Grounds
 
-A fast browser-based cyberpunk battle game where players shoot, melee, build cover, and compete across neon arenas.
+A 3D browser-based cyberpunk voxel game where players walk as blocky characters, shoot, build, mine, and compete across neon worlds.
 
 ## Playable prototype
 
 The first prototype includes:
 
-- Knockout, Flag Raid, and Core Breaker modes
-- Shooting, melee combat, health, eliminations, and respawning
-- Placeable and destructible walls
+- A walkable 3D voxel world and third-person character camera
+- Shooting, health, eliminations, jumping, and respawning
+- Placeable and removable voxel blocks
 - Solo play against a bot
 - Two-player keyboard play on one PC
 - Responsive phone controls
@@ -37,13 +37,13 @@ Then open the local URL printed in the terminal.
 
 ## Controls
 
-Player one uses **WASD** to move, **Space** to fire, **Q** for melee, and **E** to build. Player two uses the **arrow keys**, **Enter** to fire, **/** for melee, and **.** to build. Phones use the on-screen controls and work best in landscape.
+Use **WASD** to walk, drag the world to look, **Space** to jump, **F** to fire, **E** to build, and **R** to mine a targeted block. Phones use the on-screen controls and work best in landscape.
 
 ## Roadmap
 
 - [x] Game concept and character art
-- [x] Core combat and building loop
-- [x] Three game modes
+- [x] 3D character movement and voxel world
+- [x] Core combat, building, and mining loop
 - [x] Keyboard and touch controls
 - [ ] Character selection and unique abilities
 - [ ] Antigravity map integration

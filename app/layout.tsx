@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Cyber Battle Grounds",
-  description: "Build, battle, and break through in a fast browser arena game.",
+  description: "Walk, build, mine, and battle in a 3D cyber voxel world.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
