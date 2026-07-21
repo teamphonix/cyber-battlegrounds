@@ -1,89 +1,60 @@
-# ⚡ Cyber Battlegrounds
+# Cyber Battle Grounds
 
-> A fast-paced cyberpunk battle game with unique characters, tactical gameplay, and neon-lit arenas.
+A 3D browser-based cyberpunk voxel game where players walk as blocky characters, shoot, build, mine, and compete across neon worlds.
 
----
+## Playable prototype
 
-## 🎮 Game Overview
+The first prototype includes:
 
-**Cyber Battlegrounds** is a top-down/side-scrolling battle game set in a dystopian cyber future. Players choose from a roster of unique characters, each with distinct abilities and playstyles, and compete across high-tech arenas.
+- A walkable 3D voxel world and third-person character camera
+- Shooting, health, eliminations, jumping, and respawning
+- Placeable and removable voxel blocks
+- Solo play against a bot
+- Two-player keyboard play on one PC
+- Responsive phone controls
 
----
+## Characters
 
-## 🧍 Playable Characters
+| Character | Class | Playstyle |
+|---|---|---|
+| Cyber Soldier | Assault | Balanced front-liner |
+| Hacker | Support / Intel | Tactical disruptor |
+| Cyber Ninja | Stealth | Hit-and-run assassin |
+| Heavy Gunner | Tank | Suppression and defense |
 
-| Character | Class | Playstyle | Color |
-|---|---|---|---|
-| **Cyber Soldier** | Assault | Balanced front-liner | 🔵 Cyan |
-| **Hacker** | Support / Intel | Tactical disruptor | 🟢 Green |
-| **Cyber Ninja** | Stealth | Hit-and-run assassin | 🔴 Red |
-| **Heavy Gunner** | Tank | Suppression & defense | 🟠 Orange |
+Character and logo artwork lives in `assets/`. New Antigravity exports should be added under `assets/characters`, `assets/maps`, or `assets/ui`.
 
----
+## Run locally
 
-## 📁 Project Structure
+Requires Node.js 22.13 or newer.
 
-```
-cyber-battlegrounds/
-├── assets/
-│   ├── logo/           # Game logo and branding
-│   ├── characters/     # Character sprites and sheets
-│   ├── ui/             # UI elements (menus, HUD, buttons)
-│   └── maps/           # Map tiles and backgrounds
-├── src/
-│   ├── characters/     # Character logic and stats
-│   ├── game/           # Core game engine and loop
-│   ├── ui/             # UI rendering
-│   └── utils/          # Shared utilities
-├── index.html
-└── README.md
+```bash
+npm install
+npm run dev
 ```
 
----
+Then open the local URL printed in the terminal.
 
-## 🛠️ Tech Stack
+## Controls
 
-- **Engine**: Vanilla JavaScript (Canvas API)
-- **Styling**: Vanilla CSS
-- **Assets**: AI-generated sprites and artwork
-- **Build**: No build step required — runs in browser
+Use **WASD** to walk, drag the world to look, **Space** to jump, **F** to fire, **E** to build, and **R** to mine a targeted block. Phones use the on-screen controls and work best in landscape.
 
----
+## Roadmap
 
-## 🚀 Getting Started
+- [x] Game concept and character art
+- [x] 3D character movement and voxel world
+- [x] Core combat, building, and mining loop
+- [x] Keyboard and touch controls
+- [ ] Character selection and unique abilities
+- [ ] Antigravity map integration
+- [ ] Cross-device online rooms
+- [ ] Sound, progression, and polish
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/teamphonix/cyber-battlegrounds.git
-   cd cyber-battlegrounds
-   ```
+## Stack
 
-2. Open `index.html` in your browser, or serve locally:
-   ```bash
-   npx serve .
-   ```
+- React and TypeScript
+- Canvas API game loop
+- vinext / Vite
+- Cloudflare-compatible deployment
 
----
-
-## 🗺️ Roadmap
-
-- [x] Game concept & character design
-- [x] Logo and visual assets
-- [ ] Character selection screen
-- [ ] Core game loop
-- [ ] Combat system
-- [ ] Map/arena design
-- [ ] Sound effects & music
-- [ ] Multiplayer support
-
----
-
-## 🤖 AI Collaboration
-
-This project is being built collaboratively with AI coding assistants. Each session continues from where the last left off — this repo is the single source of truth.
-
----
-
-## 📄 License
-
-MIT License — see [LICENSE](LICENSE) for details.
+This project is being built collaboratively with AI coding assistants. The GitHub repository is the source of truth.
