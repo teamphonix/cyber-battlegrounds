@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Mobile-first viewport: no scaling, full screen -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#00e5ff">
+
+  <title>Cyber Battlegrounds</title>
+  <meta name="description" content="A fast-paced cyberpunk 3D multiplayer RPG. Choose your warrior, enter the battleground — play on mobile or PC.">
+
+  <link rel="manifest" href="/manifest.json">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap">
+
+  <!-- Game styles -->
+  <link rel="stylesheet" href="/styles/index.css">
+
+  <!-- ── CDN Libraries (loaded before game modules) ── -->
+  <!-- Babylon.js 3D engine -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <!-- Babylon GUI (for future in-world UI) -->
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+  <!-- Socket.io client — served automatically by our server -->
+  <script src="/socket.io/socket.io.js"></script>
+  <!-- nipplejs — virtual joystick for mobile -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nipplejs/0.10.1/nipplejs.min.js"></script>
+</head>
+
+<body>
+
+  <!-- ══════════════════════ 3D CANVAS ══════════════════════ -->
+  <canvas id="renderCanvas" tabindex="0"></canvas>
+
+
+  <!-- ══════════════════ CHARACTER SELECT ══════════════════ -->
+  <div id="character-select">
+    <div class="select-container">
+
+      <img src="/assets/logo/logo.png" alt="Cyber Battlegrounds" class="game-logo">
+      <h1 class="game-title">CYBER BATTLEGROUNDS</h1>
+      <p class="select-subtitle">Choose your warrior. Enter the battleground.</p>
+
+      <!-- ── Character Cards ── -->
+      <div class="character-grid">
+
+        <!-- Cyber Soldier -->
+        <div class="char-card selected" data-character="cyber_soldier" id="card-soldier">
+          <div class="char-portrait soldier-portrait">
+            <img src="/assets/characters/cyber_soldier.png" alt="Cyber Soldier">
+          </div>
+          <div class="char-info">
+            <span class="char-name">CYBER SOLDIER</span>
+            <span class="char-class">ASSAULT</span>
+            <div class="stat-bars">
+              <div class="stat-row"><span>HP</span><div class="stat-bar"><div class="stat-fill" style="width:65%;color:var(--cyan)"></div></div></div>
+              <div class="stat-row"><span>SPD</span><div class="stat-bar"><div class="stat-fill" style="width:60%;color:var(--cyan)"></div></div></div>
+              <div class="stat-row"><span>ATK</span><div class="stat-bar"><div class="stat-fill" style="width:70%;color:var(--cyan)"></div></div></div>
+              <div class="stat-row"><span>DEF</span><div class="stat-bar"><div class="stat-fill" style="width:60%;color:var(--cyan)"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hacker -->
+        <div class="char-card" data-character="hacker" id="card-hacker">
+          <div class="char-portrait hacker-portrait">
+            <img src="/assets/characters/hacker.png" alt="Hacker">
+          </div>
+          <div class="char-info">
+            <span class="char-name">HACKER</span>
+            <span class="char-class">SUPPORT</span>
+            <div class="stat-bars">
+              <div class="stat-row"><span>HP</span><div class="stat-bar"><div class="stat-fill" style="width:44%;color:var(--green)"></div></div></div>
+              <div class="stat-row"><span>SPD</span><div class="stat-bar"><div class="stat-fill" style="width:50%;color:var(--green)"></div></div></div>
+              <div class="stat-row"><span>ATK</span><div class="stat-bar"><div class="stat-fill" style="width:40%;color:var(--green)"></div></div></div>
+              <div class="stat-row"><span>DEF</span><div class="stat-bar"><div class="stat-fill" style="width:30%;color:var(--green)"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cyber Ninja -->
+        <div class="char-card" data-character="cyber_ninja" id="card-ninja">
+          <div class="char-portrait ninja-portrait">
+            <img src="/assets/characters/cyber_ninja.png" alt="Cyber Ninja">
+          </div>
+          <div class="char-info">
+            <span class="char-name">CYBER NINJA</span>
+            <span class="char-class">STEALTH</span>
+            <div class="stat-bars">
+              <div class="stat-row"><span>HP</span><div class="stat-bar"><div class="stat-fill" style="width:50%;color:var(--red)"></div></div></div>
+              <div class="stat-row"><span>SPD</span><div class="stat-bar"><div class="stat-fill" style="width:90%;color:var(--red)"></div></div></div>
+              <div class="stat-row"><span>ATK</span><div class="stat-bar"><div class="stat-fill" style="width:90%;color:var(--red)"></div></div></div>
+              <div class="stat-row"><span>DEF</span><div class="stat-bar"><div class="stat-fill" style="width:28%;color:var(--red)"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heavy Gunner -->
+        <div class="char-card" data-character="heavy_gunner" id="card-gunner">
+          <div class="char-portrait gunner-portrait">
+            <img src="/assets/characters/heavy_gunner.png" alt="Heavy Gunner">
+          </div>
+          <div class="char-info">
+            <span class="char-name">HEAVY GUNNER</span>
+            <span class="char-class">TANK</span>
+            <div class="stat-bars">
+              <div class="stat-row"><span>HP</span><div class="stat-bar"><div class="stat-fill" style="width:100%;color:var(--orange)"></div></div></div>
+              <div class="stat-row"><span>SPD</span><div class="stat-bar"><div class="stat-fill" style="width:28%;color:var(--orange)"></div></div></div>
+              <div class="stat-row"><span>ATK</span><div class="stat-bar"><div class="stat-fill" style="width:62%;color:var(--orange)"></div></div></div>
+              <div class="stat-row"><span>DEF</span><div class="stat-bar"><div class="stat-fill" style="width:100%;color:var(--orange)"></div></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /.character-grid -->
+
+      <!-- ── Name input + start ── -->
+      <div class="player-setup">
+        <input
+          type="text" id="player-name" class="name-input"
+          placeholder="ENTER YOUR NAME" maxlength="16" autocomplete="off"
+          autocorrect="off" autocapitalize="characters" spellcheck="false"
+        >
+        <button id="start-btn" class="start-btn">⚡ ENTER THE BATTLEGROUND</button>
+      </div>
+
+    </div>
+  </div><!-- /#character-select -->
+
+
+  <!-- ══════════════════════ IN-GAME HUD ══════════════════════ -->
+  <div id="hud" class="hidden">
+
+    <!-- Top-left: HP + player info -->
+    <div class="hud-topleft">
+      <div class="health-container">
+        <span class="hud-label">HP</span>
+        <div class="health-bar-bg">
+          <div id="health-fill" class="health-fill"></div>
+        </div>
+        <span id="health-text" class="health-text">100/100</span>
+      </div>
+      <div class="player-info-row">
+        <span id="player-name-display" class="hud-name">---</span>
+        <span id="character-class"     class="hud-class">---</span>
+      </div>
+    </div>
+
+    <!-- Top-right: player count + camera mode -->
+    <div class="hud-topright">
+      <span id="player-count" class="player-count">👥 1 online</span>
+      <span id="cam-mode"     class="cam-mode-text">3RD PERSON</span>
+    </div>
+
+    <!-- Bottom center: PC key hints (hidden on mobile) -->
+    <div class="hud-controls-hint" id="pc-controls-hint">
+      WASD Move &nbsp;·&nbsp; Mouse Rotate &nbsp;·&nbsp; Scroll Zoom &nbsp;·&nbsp;
+      V Camera &nbsp;·&nbsp; F Attack &nbsp;·&nbsp; Q Special &nbsp;·&nbsp; E Interact
+    </div>
+
+  </div><!-- /#hud -->
+
+
+  <!-- ════════════════════ MOBILE HUD ════════════════════ -->
+  <div id="mobile-hud" class="hidden">
+
+    <!-- Left thumb joystick -->
+    <div id="joystick-zone" class="joystick-zone"></div>
+
+    <!-- Camera toggle (top-right) -->
+    <button id="btn-cam" class="hud-btn btn-cam" aria-label="Toggle camera">CAM</button>
+
+    <!-- Action buttons (bottom-right cluster) -->
+    <div class="action-buttons">
+      <div class="action-row">
+        <button id="btn-special"  class="hud-btn btn-special"  aria-label="Special ability">💫</button>
+        <button id="btn-jump"     class="hud-btn btn-jump"     aria-label="Jump">🏃</button>
+      </div>
+      <div class="action-row">
+        <button id="btn-interact" class="hud-btn btn-interact" aria-label="Interact">🔍</button>
+        <button id="btn-attack"   class="hud-btn btn-attack"   aria-label="Attack">⚔️</button>
+      </div>
+    </div>
+
+  </div><!-- /#mobile-hud -->
+
+
+  <!-- ══════════════════ LOADING SCREEN ══════════════════ -->
+  <div id="loading-screen">
+    <div class="loading-content">
+      <div class="loading-logo">⚡</div>
+      <div class="loading-text">INITIALIZING CYBER BATTLEGROUNDS</div>
+      <div class="loading-bar-bg">
+        <div id="loading-bar" class="loading-bar"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════ GAME BOOTSTRAP ══════════════════ -->
+  <script type="module">
+    import { Game } from '/src/game/Game.js';
+
+    const game = new Game();
+    let selectedCharacter = 'cyber_soldier';
+
+    // ── Character card selection
+    document.querySelectorAll('.char-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.char-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+        selectedCharacter = card.dataset.character;
+      });
+      // Touch feedback
+      card.addEventListener('touchstart', () => {}, { passive: true });
+    });
+
+    // ── Start button
+    document.getElementById('start-btn').addEventListener('click', async () => {
+      const raw  = document.getElementById('player-name').value.trim();
+      const name = raw || `Runner_${Math.floor(Math.random() * 9999)}`;
+
+      // Show loading screen
+      const loadingScreen = document.getElementById('loading-screen');
+      const loadingBar    = document.getElementById('loading-bar');
+      document.getElementById('character-select').classList.add('hidden');
+      loadingScreen.classList.add('visible');
+
+      // Fake loading progress animation
+      let pct = 0;
+      const tick = setInterval(() => {
+        pct = Math.min(95, pct + Math.random() * 18);
+        loadingBar.style.width = `${pct}%`;
+      }, 120);
+
+      try {
+        await game.start({ name, character: selectedCharacter });
+      } catch (err) {
+        console.error('[Bootstrap] Failed to start game:', err);
+      }
+
+      clearInterval(tick);
+      loadingBar.style.width = '100%';
+      setTimeout(() => loadingScreen.classList.remove('visible'), 300);
+    });
+
+    // Allow pressing Enter on the name input to start
+    document.getElementById('player-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('start-btn').click();
+    });
+
+    // ── PWA Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {/* offline OK */});
+    }
+  </script>
+
+</body>
+</html>
