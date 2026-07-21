@@ -37,7 +37,7 @@ Then open the local URL printed in the terminal.
 
 ## Controls
 
-Use **WASD** to walk, drag the world to look, **Space** to jump, **F** to fire, **E** to build, and **R** to mine a targeted block. Phones use the on-screen controls and work best in landscape.
+Use the **arrow keys** to walk, drag the world to look, **Space** to jump, **F** to fire, **E** to build, and **R** to mine a targeted block. Phones use the on-screen controls and work best in landscape.
 
 ## Roadmap
 
